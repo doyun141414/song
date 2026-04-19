@@ -1,0 +1,1930 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>키보드 연주 — 루프 & 메트로놈</title>
+  <style>
+    * { box-sizing: border-box; }
+    input[type="number"]::-webkit-outer-spin-button,
+    input[type="number"]::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+    input[type="number"] {
+      appearance: textfield;
+      -moz-appearance: textfield;
+    }
+    html, body { margin: 0; min-height: 100vh; }
+    body {
+      font-family: system-ui, sans-serif;
+      background: #1a1b26;
+      color: #c0caf5;
+    }
+    .app-shell {
+      display: flex;
+      min-height: 100vh;
+      align-items: stretch;
+    }
+    .loop-column {
+      width: 268px;
+      flex-shrink: 0;
+      border-right: 1px solid #414868;
+      background: #16161e;
+      padding: 0.65rem 0.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      overflow-y: auto;
+    }
+    .loop-column-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.4rem;
+    }
+    .loop-column-head h2 {
+      margin: 0;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: #bb9af7;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .btn-play-all {
+      width: 0;
+      height: 0;
+      padding: 0;
+      margin: 0;
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      border-style: solid;
+      border-width: 6px 0 6px 10px;
+      border-color: transparent transparent transparent #c0caf5;
+      flex-shrink: 0;
+    }
+    .btn-play-all:hover {
+      filter: brightness(1.2);
+    }
+    .btn-add-loop {
+      font: inherit;
+      font-size: 0.68rem;
+      padding: 0.28rem 0.4rem;
+      border-radius: 4px;
+      border: 1px dashed #565f89;
+      background: transparent;
+      color: #a9b1d6;
+      cursor: pointer;
+    }
+    .btn-add-loop:hover {
+      border-color: #7aa2f7;
+      color: #7aa2f7;
+    }
+    .loop-lane {
+      border: 1px solid #414868;
+      border-radius: 8px;
+      background: #24283b;
+      overflow: hidden;
+    }
+    .loop-lane .loop-wave {
+      display: block;
+      width: 100%;
+      height: 76px;
+      background: #1a1b26;
+      vertical-align: top;
+    }
+    .loop-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.25rem;
+      padding: 0.28rem 0.35rem 0.35rem;
+    }
+    .btn-lane-rec {
+      width: 16px;
+      height: 16px;
+      padding: 0;
+      border: none;
+      border-radius: 50%;
+      background: #f7768e;
+      cursor: pointer;
+      flex-shrink: 0;
+      box-shadow: 0 0 0 1px #1a1b26;
+    }
+    .btn-lane-rec:hover { filter: brightness(1.08); }
+    .btn-lane-rec.on {
+      box-shadow: 0 0 0 1px #f7768e, 0 0 8px #f7768e;
+      animation: pulse-rec 1s ease infinite;
+    }
+    @keyframes pulse-rec {
+      50% { filter: brightness(1.15); }
+    }
+    .btn-lane-play {
+      width: 0;
+      height: 0;
+      padding: 0;
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      border-style: solid;
+      border-width: 5px 0 5px 8px;
+      border-color: transparent transparent transparent #c0caf5;
+      flex-shrink: 0;
+    }
+    .btn-lane-play:hover { filter: brightness(1.2); }
+    .btn-lane-play.on {
+      border-color: transparent transparent transparent #9ece6a;
+    }
+    .lane-meta {
+      flex: 1;
+      font-size: 0.6rem;
+      opacity: 0.85;
+      min-width: 0;
+    }
+    .btn-lane-edit {
+      width: 14px;
+      height: 14px;
+      padding: 0;
+      border: 2px solid #a9b1d6;
+      border-radius: 2px;
+      background: transparent;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    .btn-lane-edit:hover {
+      border-color: #7aa2f7;
+      background: rgba(122, 162, 247, 0.12);
+    }
+    .btn-lane-del {
+      width: 20px;
+      height: 20px;
+      padding: 0;
+      border: none;
+      border-radius: 3px;
+      background: transparent;
+      color: #f7768e;
+      font-size: 0.7rem;
+      cursor: pointer;
+      opacity: 0.85;
+      line-height: 1;
+    }
+    .btn-lane-del:hover { opacity: 1; }
+    .lane-octave-wrap {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.15rem;
+      flex-shrink: 0;
+      font-size: 0.55rem;
+      color: #a9b1d6;
+    }
+    .lane-octave-wrap label { margin: 0; cursor: pointer; }
+    .lane-octave {
+      font: inherit;
+      font-size: 0.58rem;
+      padding: 0.12rem 0.18rem;
+      border-radius: 3px;
+      border: 1px solid #414868;
+      background: #1a1b26;
+      color: #c0caf5;
+      max-width: 3.4rem;
+      cursor: pointer;
+    }
+    .lane-octave:focus {
+      outline: none;
+      border-color: #7aa2f7;
+    }
+    .main-stage {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 1.25rem 1rem;
+      min-width: 0;
+    }
+    .main-stage h1 { font-size: 1.1rem; font-weight: 600; margin: 0 0 0.5rem; }
+    .main-stage > p {
+      margin: 0 0 1rem;
+      font-size: 0.9rem;
+      opacity: 0.85;
+      text-align: center;
+      max-width: 28rem;
+      line-height: 1.5;
+    }
+    .keys {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem;
+      justify-content: center;
+      max-width: 36rem;
+    }
+    kbd {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 2.25rem;
+      padding: 0.45rem 0.5rem;
+      background: #24283b;
+      border: 1px solid #414868;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      font-family: ui-monospace, monospace;
+      white-space: nowrap;
+    }
+    kbd.active {
+      background: #7aa2f7;
+      color: #1a1b26;
+      border-color: #7aa2f7;
+    }
+    .metro-line {
+      font-size: 0.85rem;
+      opacity: 0.9;
+      margin: 0 0 0.75rem;
+      text-align: center;
+    }
+    #metro-bpm {
+      width: 3.5rem;
+      padding: 0.2rem 0.35rem;
+      border-radius: 4px;
+      border: 1px solid #414868;
+      background: #24283b;
+      color: #c0caf5;
+      font-family: ui-monospace, monospace;
+    }
+    #metro-status.on { color: #9ece6a; font-weight: 600; }
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.55);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      padding: 1rem;
+    }
+    .modal-backdrop.hidden { display: none; }
+    .modal-box {
+      background: #24283b;
+      border: 1px solid #414868;
+      border-radius: 12px;
+      max-width: min(96vw, 720px);
+      max-height: 88vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .modal-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.65rem 1rem;
+      border-bottom: 1px solid #414868;
+      font-weight: 600;
+    }
+    .modal-head button {
+      border: none;
+      background: transparent;
+      color: #c0caf5;
+      font-size: 1.25rem;
+      cursor: pointer;
+      line-height: 1;
+    }
+    .modal-body {
+      padding: 0.75rem 1rem 1rem;
+      overflow: auto;
+    }
+    .modal-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      align-items: center;
+      margin-bottom: 0.65rem;
+      font-size: 0.85rem;
+    }
+    .modal-row input[type="number"] {
+      width: 3.5rem;
+      padding: 0.25rem;
+      border-radius: 4px;
+      border: 1px solid #414868;
+      background: #1a1b26;
+      color: #c0caf5;
+    }
+    .step-grid-wrap {
+      overflow-x: auto;
+      margin-top: 0.5rem;
+      border: 1px solid #414868;
+      border-radius: 8px;
+      background: #1a1b26;
+      touch-action: none;
+    }
+    .step-grid {
+      border-collapse: collapse;
+      font-size: 0.65rem;
+      user-select: none;
+    }
+    .step-grid th, .step-grid td {
+      border: 1px solid #363b54;
+      padding: 0;
+      text-align: center;
+      min-width: 18px;
+      height: 22px;
+    }
+    .step-grid th.corner { min-width: 2.2rem; background: #24283b; }
+    .step-grid tbody tr[data-melody-code] {
+      position: relative;
+    }
+    .step-grid th.step-h {
+      background: #24283b;
+      color: #7aa2f7;
+      font-weight: 600;
+    }
+    .step-grid th.step-h.beat { background: #2d334a; }
+    .step-grid th.row-label {
+      background: #24283b;
+      font-weight: 600;
+      padding: 0 0.2rem;
+      font-size: 0.6rem;
+    }
+    .step-grid td.cell {
+      cursor: pointer;
+      background: #16161e;
+    }
+    .step-grid td.cell.on {
+      background: #7aa2f7;
+    }
+    .step-grid td.cell.on.sharp {
+      background: #bb9af7;
+    }
+    /* 멜로디 굵은 막대(좌클릭·적용 후 불러오기) */
+    .step-grid tbody tr[data-melody-code]:not([data-melody-variant="sh"]) td.cell.on:not(.melody-vis-thin) {
+      background: #7aa2f7;
+    }
+    .step-grid tbody tr[data-melody-variant="sh"] td.cell.on:not(.melody-vis-thin) {
+      background: #bb9af7;
+    }
+    .step-grid tbody tr[data-melody-code] td.cell.on.melody-vis-thin {
+      background: #16161e;
+    }
+    .step-grid tbody tr[data-melody-code] td.cell.on.melody-bar-run-single:not(.melody-vis-thin) {
+      border-radius: 5px;
+    }
+    .step-grid tbody tr[data-melody-code] td.cell.on.melody-bar-run-start:not(.melody-vis-thin) {
+      border-top-left-radius: 5px;
+      border-bottom-left-radius: 5px;
+    }
+    .step-grid tbody tr[data-melody-code] td.cell.on.melody-bar-run-end:not(.melody-vis-thin) {
+      border-top-right-radius: 5px;
+      border-bottom-right-radius: 5px;
+    }
+    .step-grid tbody tr[data-melody-code] td.cell.on.melody-bar-run-mid:not(.melody-vis-thin) {
+      border-radius: 0;
+    }
+    .step-grid tr[data-melody-variant="sh"] th.row-label,
+    .step-grid tr[data-melody-variant="sh"] td.cell {
+      height: 18px;
+      min-height: 18px;
+    }
+    .row-label-inner--sharp-row {
+      min-width: 2.1rem;
+      gap: 2px;
+    }
+    .row-sharp-lbl {
+      font-size: 0.55rem;
+      color: #bb9af7;
+      font-weight: 700;
+      min-width: 0.45rem;
+      text-align: center;
+    }
+    .step-grid tr.row-key-active th.row-label {
+      background: #2d334a;
+      color: #7aa2f7;
+      box-shadow: inset 0 0 0 1px #7aa2f7;
+    }
+    .step-grid th.row-label-sharp {
+      font-size: 0.55rem;
+      color: #bb9af7;
+      font-weight: 600;
+    }
+    .row-label-inner {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
+      min-width: 1.85rem;
+      height: 100%;
+      min-height: 22px;
+      padding: 0 1px;
+      touch-action: none;
+      user-select: none;
+    }
+    .row-label-char {
+      font-weight: 700;
+      min-width: 0.55rem;
+      text-align: center;
+    }
+    .melody-line-preview-bar,
+    .melody-line-track-bar {
+      position: absolute;
+      top: 50%;
+      left: 0;
+      transform: translateY(-50%);
+      height: 2.5px;
+      border-radius: 2px;
+      pointer-events: none;
+      box-sizing: border-box;
+    }
+    .melody-line-preview-bar {
+      z-index: 6;
+    }
+    .melody-line-track-bar {
+      z-index: 4;
+    }
+    .melody-line-preview-bar--nat,
+    .melody-line-track-bar--nat {
+      background: #7aa2f7;
+      box-shadow: 0 0 0 1px rgba(26, 27, 38, 0.4);
+    }
+    .melody-line-preview-bar--sharp,
+    .melody-line-track-bar--sharp {
+      background: #bb9af7;
+      box-shadow: 0 0 0 1px rgba(26, 27, 38, 0.4);
+    }
+    .melody-line-preview-bar--erase {
+      height: 3px;
+      background: rgba(247, 118, 142, 0.22);
+      box-shadow: 0 0 0 1px #f7768e;
+    }
+    .modal-actions {
+      display: flex;
+      gap: 0.5rem;
+      margin-top: 0.75rem;
+    }
+    .modal-actions button {
+      font: inherit;
+      font-size: 0.78rem;
+      padding: 0.28rem 0.65rem;
+      border-radius: 5px;
+      border: 1px solid #565f89;
+      background: #414868;
+      color: #c0caf5;
+      cursor: pointer;
+    }
+    .modal-actions button.primary {
+      background: #7aa2f7;
+      border-color: #7aa2f7;
+      color: #1a1b26;
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="loop-column" aria-label="루프 목록">
+      <div class="loop-column-head">
+        <h2>Loops</h2>
+        <button type="button" class="btn-play-all" id="btn-play-all" aria-label="전부 재생" title="이벤트 있는 루프 전부 동시 재생"></button>
+      </div>
+      <button type="button" class="btn-add-loop" id="btn-add-loop">+ 루프 추가</button>
+      <div id="loop-lanes-root"></div>
+    </aside>
+    <div class="main-stage">
+      <h1>키보드로 연주 (4옥타브 + 높은 도)</h1>
+      <p>
+        멜로디: 키보드 <strong>W~O</strong>, <strong>Shift</strong>=반음(#). 아래 칸은 키 안내.
+        <strong>루프 편집</strong>: 멜로디 <strong>왼쪽 클릭·드래그</strong>는 <strong>굵은 막대</strong>로 저장, <strong>우클릭 드래그</strong>는 미리듣기 후 <strong>손 뗄 때 얇은 막대</strong>로 저장. <strong>#</strong> 줄은 피아노처럼 자연음 사이에 있습니다.
+        <strong>Z~M</strong> 드럼. 루프: 빨간 원 녹음 · 삼각 재생 · 네모 편집.
+      </p>
+      <p class="metro-line">
+        메트로놈 BPM:
+        <input type="number" id="metro-bpm" min="40" max="240" value="120" inputmode="numeric" />
+        · <kbd style="min-width: unset">Ctrl</kbd> 켜기/끄기
+        · <span id="metro-status">꺼짐</span>
+      </p>
+      <div class="keys" style="flex-direction: column; gap: 0.85rem; align-items: center; max-width: 40rem;">
+        <div class="keys" id="labels" aria-hidden="true"></div>
+        <div class="keys" id="drum-labels" aria-hidden="true"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="editor-modal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="editor-title">
+    <div class="modal-box">
+      <div class="modal-head">
+        <span id="editor-title">루프 편집</span>
+        <button type="button" id="editor-close" aria-label="닫기">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="modal-row">
+          <label>BPM <input type="number" id="edit-bpm" min="40" max="240" value="120" /></label>
+          <label>박(4분음표 수) <input type="number" id="edit-beats" min="1" max="32" value="4" /></label>
+        </div>
+        <p style="font-size:0.78rem;opacity:0.8;margin:0 0 0.35rem">
+          멜로디·드럼 <strong>왼쪽 드래그</strong>는 줄 바꿔가며 칠하기/지우기(멜로디는 <strong>굵은 막대</strong>). 멜로디 <strong>우클릭 드래그</strong>는 미리듣기 후 <strong>얇은 막대</strong>로 저장. <strong>#</strong> 행은 도–레 … 피아노 검은 건반 위치와 같습니다.
+        </p>
+        <div class="step-grid-wrap">
+          <table class="step-grid" id="step-grid"></table>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="primary" id="editor-apply">이 루프에 적용</button>
+          <button type="button" id="editor-cancel">취소</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const C4 = 261.6255653005986;
+
+    const NOTE_BY_CODE = {
+      KeyW: { name: "도", semis: 0, oct: 0 },
+      KeyE: { name: "레", semis: 2, oct: 0 },
+      KeyR: { name: "미", semis: 4, oct: 0 },
+      KeyT: { name: "파", semis: 5, oct: 0 },
+      KeyY: { name: "솔", semis: 7, oct: 0 },
+      KeyU: { name: "라", semis: 9, oct: 0 },
+      KeyI: { name: "시", semis: 11, oct: 0 },
+      KeyO: { name: "높은 도", semis: 0, oct: 1 },
+    };
+
+    const NOTE_ORDER = [
+      ["KeyW", "W"],
+      ["KeyE", "E"],
+      ["KeyR", "R"],
+      ["KeyT", "T"],
+      ["KeyY", "Y"],
+      ["KeyU", "U"],
+      ["KeyI", "I"],
+      ["KeyO", "O"],
+    ];
+
+    /** 피아노 검은 건반: 이 음(자연) 다음에 # 행을 둠 (도–레 … 라–시, 시–높은도, 높은도–도#) */
+    const SHARP_ROW_AFTER_CODE = new Set(["KeyW", "KeyE", "KeyT", "KeyY", "KeyU", "KeyI", "KeyO"]);
+
+    const DRUM_BY_CODE = {
+      KeyZ: { label: "킥" },
+      KeyX: { label: "스네어" },
+      KeyC: { label: "닫힌 하이햇" },
+      KeyV: { label: "열린 하이햇" },
+      KeyB: { label: "탐" },
+      KeyN: { label: "베이스" },
+      KeyM: { label: "클랩" },
+    };
+
+    const DRUM_ORDER = [
+      ["KeyZ", "Z"],
+      ["KeyX", "X"],
+      ["KeyC", "C"],
+      ["KeyV", "V"],
+      ["KeyB", "B"],
+      ["KeyN", "N"],
+      ["KeyM", "M"],
+    ];
+
+    const labels = document.getElementById("labels");
+    const drumLabels = document.getElementById("drum-labels");
+    const loopLanesRoot = document.getElementById("loop-lanes-root");
+
+    function sharpDisplayName(code) {
+      const n = NOTE_BY_CODE[code];
+      return n.name.endsWith("도") ? n.name.replace("도", "도#") : `${n.name}#`;
+    }
+
+    function setMainKbdActive(code, on) {
+      const kbd = labels.querySelector(`kbd[data-code="${code}"]`);
+      if (kbd) kbd.classList.toggle("active", on);
+    }
+
+    function stopNoteVoice(code, sharp) {
+      const vid = voiceId(code, sharp);
+      if (voices.has(vid)) stopVoice(vid);
+    }
+
+    function stopNoteVoiceForLoop(code, sharp, loopId, semitoneShift = 0) {
+      const vid = voiceId(code, sharp, { loopId, semitoneShift });
+      if (voices.has(vid)) stopVoice(vid);
+    }
+
+    for (const [code, keyLabel] of NOTE_ORDER) {
+      const el = document.createElement("kbd");
+      el.dataset.code = code;
+      const n = NOTE_BY_CODE[code];
+      const sn = sharpDisplayName(code);
+      el.textContent = `${keyLabel} ${n.name} · ⇧${keyLabel} ${sn}`;
+      labels.appendChild(el);
+    }
+
+    for (const [code, keyLabel] of DRUM_ORDER) {
+      const el = document.createElement("kbd");
+      el.dataset.drumCode = code;
+      el.textContent = `${keyLabel} ${DRUM_BY_CODE[code].label}`;
+      drumLabels.appendChild(el);
+    }
+
+    function voiceId(code, sharp, opts = {}) {
+      if (opts.loopId != null) {
+        const shift = opts.semitoneShift ?? 0;
+        return `L${opts.loopId}:${code}:${sharp ? "s" : "n"}:${shift}`;
+      }
+      return `${code}:${sharp ? "s" : "n"}`;
+    }
+
+    function freqFor(code, sharp, extraSemis = 0) {
+      const def = NOTE_BY_CODE[code];
+      const semis = def.semis + (sharp ? 1 : 0) + def.oct * 12 + extraSemis;
+      return C4 * Math.pow(2, semis / 12);
+    }
+
+    let audioCtx = null;
+    let masterGain = null;
+    let analyserNode = null;
+    let noiseBuffer = null;
+    const voices = new Map();
+
+    function ensureMasterChain() {
+      const ctx = getCtx();
+      if (!masterGain) {
+        masterGain = ctx.createGain();
+        masterGain.gain.value = 1;
+        analyserNode = ctx.createAnalyser();
+        analyserNode.fftSize = 2048;
+        masterGain.connect(analyserNode);
+        analyserNode.connect(ctx.destination);
+      }
+      return masterGain;
+    }
+
+    function getMasterOut() {
+      return ensureMasterChain();
+    }
+
+    function getNoiseBuffer(ctx) {
+      if (!noiseBuffer || noiseBuffer.sampleRate !== ctx.sampleRate) {
+        const len = Math.floor(ctx.sampleRate * 0.5);
+        noiseBuffer = ctx.createBuffer(1, len, ctx.sampleRate);
+        const d = noiseBuffer.getChannelData(0);
+        for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+      }
+      return noiseBuffer;
+    }
+
+    function playSnare(ctx, t, out) {
+      const body = ctx.createOscillator();
+      body.type = "triangle";
+      body.frequency.setValueAtTime(190, t);
+      const bg = ctx.createGain();
+      bg.gain.setValueAtTime(0.35, t);
+      bg.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
+      body.connect(bg);
+      bg.connect(out);
+      body.start(t);
+      body.stop(t + 0.1);
+
+      const src = ctx.createBufferSource();
+      src.buffer = getNoiseBuffer(ctx);
+      const hp = ctx.createBiquadFilter();
+      hp.type = "highpass";
+      hp.frequency.value = 1200;
+      const ng = ctx.createGain();
+      ng.gain.setValueAtTime(0.55, t);
+      ng.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
+      src.connect(hp);
+      hp.connect(ng);
+      ng.connect(out);
+      src.start(t, 0, 0.2);
+    }
+
+    function playDrum(code) {
+      const ctx = getCtx();
+      if (ctx.state === "suspended") ctx.resume();
+      const t = ctx.currentTime;
+      const out = getMasterOut();
+
+      const flash = () => {
+        const kbd = drumLabels.querySelector(`[data-drum-code="${code}"]`);
+        if (kbd) {
+          kbd.classList.add("active");
+          setTimeout(() => kbd.classList.remove("active"), 90);
+        }
+      };
+      flash();
+
+      if (code === "KeyZ") {
+        const osc = ctx.createOscillator();
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(160, t);
+        osc.frequency.exponentialRampToValueAtTime(48, t + 0.12);
+        const g = ctx.createGain();
+        g.gain.setValueAtTime(0.95, t);
+        g.gain.exponentialRampToValueAtTime(0.001, t + 0.38);
+        osc.connect(g);
+        g.connect(out);
+        osc.start(t);
+        osc.stop(t + 0.4);
+        return;
+      }
+      if (code === "KeyX") {
+        playSnare(ctx, t, out);
+        return;
+      }
+      if (code === "KeyC") {
+        const src = ctx.createBufferSource();
+        src.buffer = getNoiseBuffer(ctx);
+        const bp = ctx.createBiquadFilter();
+        bp.type = "bandpass";
+        bp.frequency.value = 9000;
+        bp.Q.value = 0.6;
+        const g = ctx.createGain();
+        g.gain.setValueAtTime(0.22, t);
+        g.gain.exponentialRampToValueAtTime(0.001, t + 0.045);
+        src.connect(bp);
+        bp.connect(g);
+        g.connect(out);
+        src.start(t, 0, 0.06);
+        return;
+      }
+      if (code === "KeyV") {
+        const src = ctx.createBufferSource();
+        src.buffer = getNoiseBuffer(ctx);
+        const hp = ctx.createBiquadFilter();
+        hp.type = "highpass";
+        hp.frequency.value = 7000;
+        const g = ctx.createGain();
+        g.gain.setValueAtTime(0.2, t);
+        g.gain.exponentialRampToValueAtTime(0.001, t + 0.22);
+        src.connect(hp);
+        hp.connect(g);
+        g.connect(out);
+        src.start(t, 0, 0.25);
+        return;
+      }
+      if (code === "KeyB") {
+        const stick = ctx.createBufferSource();
+        stick.buffer = getNoiseBuffer(ctx);
+        const sbp = ctx.createBiquadFilter();
+        sbp.type = "bandpass";
+        sbp.frequency.value = 4500;
+        sbp.Q.value = 1.1;
+        const sg = ctx.createGain();
+        sg.gain.setValueAtTime(0.24, t);
+        sg.gain.exponentialRampToValueAtTime(0.001, t + 0.03);
+        stick.connect(sbp);
+        sbp.connect(sg);
+        sg.connect(out);
+        stick.start(t, 0, 0.035);
+        const osc = ctx.createOscillator();
+        osc.type = "triangle";
+        osc.frequency.setValueAtTime(255, t);
+        osc.frequency.exponentialRampToValueAtTime(138, t + 0.15);
+        const g = ctx.createGain();
+        g.gain.setValueAtTime(0.68, t);
+        g.gain.exponentialRampToValueAtTime(0.001, t + 0.34);
+        osc.connect(g);
+        g.connect(out);
+        osc.start(t);
+        osc.stop(t + 0.38);
+        return;
+      }
+      if (code === "KeyN") {
+        const atk = ctx.createBufferSource();
+        atk.buffer = getNoiseBuffer(ctx);
+        const atkBp = ctx.createBiquadFilter();
+        atkBp.type = "bandpass";
+        atkBp.frequency.value = 2800;
+        atkBp.Q.value = 1.1;
+        const atkG = ctx.createGain();
+        atkG.gain.setValueAtTime(0.35, t);
+        atkG.gain.exponentialRampToValueAtTime(0.001, t + 0.035);
+        atk.connect(atkBp);
+        atkBp.connect(atkG);
+        atkG.connect(out);
+        atk.start(t, 0, 0.04);
+        const osc = ctx.createOscillator();
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(82, t);
+        osc.frequency.exponentialRampToValueAtTime(32, t + 0.22);
+        const g = ctx.createGain();
+        g.gain.setValueAtTime(1.05, t);
+        g.gain.exponentialRampToValueAtTime(0.001, t + 0.62);
+        osc.connect(g);
+        g.connect(out);
+        osc.start(t);
+        osc.stop(t + 0.65);
+        return;
+      }
+      if (code === "KeyM") {
+        const hits = [
+          { delay: 0, level: 0.48 },
+          { delay: 0.011, level: 0.38 },
+          { delay: 0.023, level: 0.3 },
+          { delay: 0.036, level: 0.22 },
+        ];
+        for (const { delay, level } of hits) {
+          const dt = t + delay;
+          const src = ctx.createBufferSource();
+          src.buffer = getNoiseBuffer(ctx);
+          const bp = ctx.createBiquadFilter();
+          bp.type = "bandpass";
+          bp.frequency.value = 1800;
+          bp.Q.value = 0.55;
+          const g = ctx.createGain();
+          g.gain.setValueAtTime(level, dt);
+          g.gain.exponentialRampToValueAtTime(0.001, dt + 0.085);
+          src.connect(bp);
+          bp.connect(g);
+          g.connect(out);
+          src.start(dt, 0, 0.1);
+        }
+      }
+    }
+
+    function getCtx() {
+      if (!audioCtx) {
+        audioCtx = new AudioContext();
+      }
+      return audioCtx;
+    }
+
+    function startNote(code, sharp, opts = {}) {
+      const semitoneShift = opts.semitoneShift ?? 0;
+      const vid = voiceId(code, sharp, opts);
+      if (!NOTE_BY_CODE[code] || voices.has(vid)) return;
+
+      const ctx = getCtx();
+      if (ctx.state === "suspended") ctx.resume();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(freqFor(code, sharp, semitoneShift), ctx.currentTime);
+      const peak = code === "KeyW" ? 0.3 : 0.2;
+      gain.gain.setValueAtTime(0, ctx.currentTime);
+      gain.gain.linearRampToValueAtTime(peak, ctx.currentTime + 0.02);
+      osc.connect(gain);
+      gain.connect(getMasterOut());
+      osc.start();
+      const loopId = opts.loopId != null ? opts.loopId : null;
+      voices.set(vid, { osc, gain, physicalCode: code, loopId, sharp: !!sharp });
+
+      updateGridRowHighlight(code);
+      setMainKbdActive(code, true);
+    }
+
+    function stopVoice(vid) {
+      const v = voices.get(vid);
+      if (!v) return;
+      const ctx = getCtx();
+      const { osc, gain, physicalCode } = v;
+      const t = ctx.currentTime;
+      gain.gain.cancelScheduledValues(t);
+      gain.gain.setValueAtTime(gain.gain.value, t);
+      gain.gain.linearRampToValueAtTime(0, t + 0.08);
+      osc.stop(t + 0.1);
+      voices.delete(vid);
+
+      updateGridRowHighlight(physicalCode);
+      const stillKey = [...voices.values()].some((x) => x.physicalCode === physicalCode);
+      if (!stillKey) setMainKbdActive(physicalCode, false);
+    }
+
+    function stopAllForPhysicalCode(code, onlyLoopId) {
+      for (const vid of [...voices.keys()]) {
+        const v = voices.get(vid);
+        if (v.physicalCode !== code) continue;
+        if (onlyLoopId !== undefined && v.loopId !== onlyLoopId) continue;
+        stopVoice(vid);
+      }
+    }
+
+    function silenceLoopNotes(loopId) {
+      for (const vid of [...voices.keys()]) {
+        const v = voices.get(vid);
+        if (v.loopId === loopId) stopVoice(vid);
+      }
+    }
+
+    let metronomeOn = false;
+    let metronomeTimer = null;
+    let metronomeNextTime = 0;
+    let metronomeBeat = 0;
+
+    function getMetronomeBpm() {
+      const inp = document.getElementById("metro-bpm");
+      let v = inp ? parseInt(inp.value, 10) : 120;
+      if (Number.isNaN(v)) v = 120;
+      return Math.min(240, Math.max(40, v));
+    }
+
+    function updateMetronomeStatus() {
+      const el = document.getElementById("metro-status");
+      if (!el) return;
+      el.textContent = metronomeOn ? "켜짐" : "꺼짐";
+      el.classList.toggle("on", metronomeOn);
+    }
+
+    function playMetronomeClick(ctx, when, accent) {
+      const osc = ctx.createOscillator();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(accent ? 1040 : 780, when);
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0.0001, when);
+      g.gain.exponentialRampToValueAtTime(accent ? 0.34 : 0.2, when + 0.004);
+      g.gain.exponentialRampToValueAtTime(0.0001, when + 0.052);
+      osc.connect(g);
+      g.connect(getMasterOut());
+      osc.start(when);
+      osc.stop(when + 0.058);
+    }
+
+    function metronomeScheduler() {
+      if (!metronomeOn) return;
+      const ctx = getCtx();
+      if (ctx.state === "suspended") ctx.resume();
+      const spb = 60 / getMetronomeBpm();
+      const ahead = 0.18;
+      while (metronomeNextTime < ctx.currentTime + ahead) {
+        playMetronomeClick(ctx, metronomeNextTime, metronomeBeat % 4 === 0);
+        metronomeNextTime += spb;
+        metronomeBeat++;
+      }
+      metronomeTimer = setTimeout(metronomeScheduler, 25);
+    }
+
+    function startMetronome() {
+      const ctx = getCtx();
+      if (ctx.state === "suspended") ctx.resume();
+      ensureMasterChain();
+      metronomeNextTime = ctx.currentTime + 0.08;
+      metronomeBeat = 0;
+      metronomeOn = true;
+      updateMetronomeStatus();
+      metronomeScheduler();
+    }
+
+    function stopMetronome() {
+      metronomeOn = false;
+      if (metronomeTimer !== null) {
+        clearTimeout(metronomeTimer);
+        metronomeTimer = null;
+      }
+      updateMetronomeStatus();
+    }
+
+    function toggleMetronome() {
+      if (metronomeOn) stopMetronome();
+      else startMetronome();
+    }
+
+    /* ——— 루프 레인 ——— */
+    let nextLaneId = 1;
+    const loopLanes = [];
+    let activeRecordingLaneId = null;
+    let editorTargetLane = null;
+    const editorGridState = new Map();
+    const MAX_LOOP_BEATS = 32;
+    function readEditBeats() {
+      return Math.min(MAX_LOOP_BEATS, Math.max(1, parseInt(document.getElementById("edit-beats").value, 10) || 4));
+    }
+
+    function pushRecordEvent(ev) {
+      const lane = loopLanes.find((l) => l.id === activeRecordingLaneId);
+      if (!lane || !lane.recording) return;
+      lane.events.push({
+        t: (performance.now() - lane.recordT0) / 1000,
+        ...ev,
+      });
+      updateLaneMeta(lane);
+    }
+
+    function computeLoopDurationSec(lane) {
+      if (typeof lane.barDurationSec === "number" && lane.barDurationSec > 0) {
+        return lane.barDurationSec;
+      }
+      if (!lane.events.length) return 0.5;
+      const maxT = lane.events.reduce((m, e) => Math.max(m, e.t), 0);
+      return Math.max(maxT, 0.02);
+    }
+
+    function clearLanePlaybackTimers(lane) {
+      for (const id of lane.playbackEventIds) clearTimeout(id);
+      lane.playbackEventIds.length = 0;
+      if (lane.playbackLoopTimer !== null) {
+        clearTimeout(lane.playbackLoopTimer);
+        lane.playbackLoopTimer = null;
+      }
+    }
+
+    function stopLanePlayback(lane) {
+      lane.playing = false;
+      clearLanePlaybackTimers(lane);
+      silenceLoopNotes(lane.id);
+      const playBtn = lane.el && lane.el.querySelector(".btn-lane-play");
+      if (playBtn) playBtn.classList.remove("on");
+      updateLaneMeta(lane);
+    }
+
+    function applyRecordedEvent(ev, lane) {
+      const loopId = lane.id;
+      const semitoneShift = (lane.octaveShift || 0) * 12;
+      if (ev.action === "drum") {
+        playDrum(ev.code);
+        return;
+      }
+      if (ev.action === "noteOn") {
+        startNote(ev.code, !!ev.sharp, { loopId, semitoneShift });
+        return;
+      }
+      if (ev.action === "noteOff") {
+        stopNoteVoiceForLoop(ev.code, ev.sharp === true, loopId, semitoneShift);
+      }
+    }
+
+    function scheduleLaneTick(lane) {
+      if (!lane.playing) return;
+      silenceLoopNotes(lane.id);
+      clearLanePlaybackTimers(lane);
+      for (const ev of lane.events) {
+        const id = setTimeout(() => {
+          if (!lane.playing) return;
+          applyRecordedEvent(ev, lane);
+        }, ev.t * 1000);
+        lane.playbackEventIds.push(id);
+      }
+      const durMs = computeLoopDurationSec(lane) * 1000;
+      lane.playbackLoopTimer = setTimeout(() => {
+        lane.playbackLoopTimer = null;
+        if (!lane.playing) return;
+        scheduleLaneTick(lane);
+      }, durMs);
+    }
+
+    function startLanePlayback(lane) {
+      if (!lane.events.length) return;
+      clearLanePlaybackTimers(lane);
+      silenceLoopNotes(lane.id);
+      lane.playing = true;
+      const playBtn = lane.el.querySelector(".btn-lane-play");
+      if (playBtn) playBtn.classList.add("on");
+      updateLaneMeta(lane);
+      scheduleLaneTick(lane);
+    }
+
+    function toggleLaneRecording(lane) {
+      if (lane.recording) {
+        lane.recording = false;
+        activeRecordingLaneId = null;
+        lane.el.querySelector(".btn-lane-rec").classList.remove("on");
+        lane.events.sort((a, b) => a.t - b.t);
+        updateLaneMeta(lane);
+        return;
+      }
+      for (const L of loopLanes) {
+        if (L.recording) {
+          L.recording = false;
+          if (L.el) L.el.querySelector(".btn-lane-rec").classList.remove("on");
+          updateLaneMeta(L);
+        }
+      }
+      stopLanePlayback(lane);
+      lane.recording = true;
+      lane.barDurationSec = null;
+      activeRecordingLaneId = lane.id;
+      lane.events = [];
+      lane.melodyArticulation = null;
+      lane.melodyThinKeys = null;
+      lane.recordT0 = performance.now();
+      lane.el.querySelector(".btn-lane-rec").classList.add("on");
+      updateLaneMeta(lane);
+    }
+
+    function toggleLanePlay(lane) {
+      if (lane.playing) {
+        stopLanePlayback(lane);
+        return;
+      }
+      if (!lane.events.length) return;
+      lane.recording = false;
+      if (activeRecordingLaneId === lane.id) activeRecordingLaneId = null;
+      lane.el.querySelector(".btn-lane-rec").classList.remove("on");
+      startLanePlayback(lane);
+    }
+
+    function playAllLoops() {
+      for (const lane of loopLanes) {
+        if (!lane.events.length) continue;
+        lane.recording = false;
+        if (activeRecordingLaneId === lane.id) activeRecordingLaneId = null;
+        const rec = lane.el && lane.el.querySelector(".btn-lane-rec");
+        if (rec) rec.classList.remove("on");
+        startLanePlayback(lane);
+      }
+    }
+
+    function updateLaneMeta(lane) {
+      if (!lane.el) return;
+      const meta = lane.el.querySelector(".lane-meta");
+      if (!meta) return;
+      const oct = lane.octaveShift || 0;
+      let s = `${lane.events.length} 이벤트`;
+      if (oct !== 0) s += ` · 옥${oct > 0 ? "+" : ""}${oct}`;
+      if (lane.recording) s += " · REC";
+      if (lane.playing) s += " · ▶";
+      meta.textContent = s;
+    }
+
+    function removeLane(lane) {
+      stopLanePlayback(lane);
+      if (lane.recording) {
+        lane.recording = false;
+        if (activeRecordingLaneId === lane.id) activeRecordingLaneId = null;
+      }
+      if (lane.el) lane.el.remove();
+      const i = loopLanes.indexOf(lane);
+      if (i !== -1) loopLanes.splice(i, 1);
+      if (editorTargetLane === lane) closeEditor();
+    }
+
+    function createLane() {
+      const id = nextLaneId++;
+      const lane = {
+        id,
+        events: [],
+        recording: false,
+        playing: false,
+        recordT0: 0,
+        playbackLoopTimer: null,
+        playbackEventIds: [],
+        el: null,
+        canvas: null,
+        editBpm: 120,
+        editBeats: 4,
+        barDurationSec: null,
+        editorDraftGrid: null,
+        editorHasDraft: false,
+        melodyArticulation: null,
+        melodyThinKeys: null,
+        octaveShift: 0,
+      };
+      loopLanes.push(lane);
+
+      const box = document.createElement("div");
+      box.className = "loop-lane";
+      box.dataset.laneId = String(id);
+      const cw = Math.max(200, loopLanesRoot.clientWidth || 240);
+      const waveH = 76;
+      box.innerHTML = `
+        <canvas class="loop-wave" width="${cw}" height="${waveH}"></canvas>
+        <div class="loop-toolbar">
+          <button type="button" class="btn-lane-rec" aria-label="녹음"></button>
+          <button type="button" class="btn-lane-play" aria-label="재생"></button>
+          <button type="button" class="btn-lane-edit" aria-label="박자·키 입력" title="박자·키 입력"></button>
+          <span class="lane-octave-wrap" title="이 루프만 재생 옥타브(12반음 단위)">
+            <label for="lane-oct-${id}">옥타브</label>
+            <select id="lane-oct-${id}" class="lane-octave" aria-label="루프 옥타브">
+              <option value="-3">−3</option>
+              <option value="-2">−2</option>
+              <option value="-1">−1</option>
+              <option value="0" selected>0</option>
+              <option value="1">+1</option>
+              <option value="2">+2</option>
+              <option value="3">+3</option>
+            </select>
+          </span>
+          <span class="lane-meta">0 이벤트</span>
+          <button type="button" class="btn-lane-del" title="루프 삭제">⌫</button>
+        </div>
+      `;
+      loopLanesRoot.appendChild(box);
+      lane.el = box;
+      lane.canvas = box.querySelector(".loop-wave");
+
+      box.querySelector(".btn-lane-rec").addEventListener("click", () => toggleLaneRecording(lane));
+      box.querySelector(".btn-lane-play").addEventListener("click", () => toggleLanePlay(lane));
+      box.querySelector(".btn-lane-edit").addEventListener("click", () => openEditor(lane));
+      const octSel = box.querySelector(".lane-octave");
+      octSel.addEventListener("change", () => {
+        lane.octaveShift = Math.min(3, Math.max(-3, parseInt(octSel.value, 10) || 0));
+        if (lane.playing) {
+          stopLanePlayback(lane);
+          startLanePlayback(lane);
+        }
+        updateLaneMeta(lane);
+      });
+      box.querySelector(".btn-lane-del").addEventListener("click", () => removeLane(lane));
+
+      updateLaneMeta(lane);
+      return lane;
+    }
+
+    /* 파형 */
+    const waveData = new Uint8Array(2048);
+
+    const LOOP_WAVE_H = 76;
+
+    function resizeLoopCanvases() {
+      const w = Math.max(200, loopLanesRoot.clientWidth || 240);
+      for (const lane of loopLanes) {
+        if (!lane.canvas) continue;
+        lane.canvas.width = w;
+        lane.canvas.height = LOOP_WAVE_H;
+      }
+    }
+
+    function drawLaneWave(lane) {
+      const canvas = lane.canvas;
+      if (!canvas || !analyserNode) return;
+      const ctx2 = canvas.getContext("2d");
+      const w = canvas.width;
+      const h = canvas.height;
+      analyserNode.getByteTimeDomainData(waveData);
+      ctx2.fillStyle = "#1a1b26";
+      ctx2.fillRect(0, 0, w, h);
+      ctx2.lineWidth = 2.25;
+      ctx2.strokeStyle = lane.recording ? "#f7768e" : "#7aa2f7";
+      ctx2.beginPath();
+      const step = Math.max(1, Math.floor(waveData.length / w));
+      const amp = 1.65;
+      for (let x = 0; x < w; x++) {
+        const v = (waveData[x * step] / 128 - 1) * amp;
+        const y = Math.max(2, Math.min(h - 2, (0.5 - v * 0.46) * h));
+        if (x === 0) ctx2.moveTo(x, y);
+        else ctx2.lineTo(x, y);
+      }
+      ctx2.stroke();
+    }
+
+    function waveLoop() {
+      requestAnimationFrame(waveLoop);
+      if (!analyserNode) return;
+      for (const lane of loopLanes) {
+        if (!lane.canvas) continue;
+        if (lane.recording || lane.playing) drawLaneWave(lane);
+        else {
+          const c = lane.canvas.getContext("2d");
+          c.fillStyle = "#1a1b26";
+          c.fillRect(0, 0, lane.canvas.width, lane.canvas.height);
+        }
+      }
+    }
+
+    /* 스텝 편집기 */
+    const editorModal = document.getElementById("editor-modal");
+    const stepGridEl = document.getElementById("step-grid");
+    let gridBrush = null;
+
+    function updateGridRowHighlight(code) {
+      if (!stepGridEl || editorModal.classList.contains("hidden")) return;
+      stepGridEl.querySelectorAll(`tr[data-melody-code="${code}"]`).forEach((tr) => {
+        const isSharpRow = tr.dataset.melodyVariant === "sh";
+        const on = [...voices.values()].some((x) => x.physicalCode === code && !!x.sharp === isSharpRow);
+        tr.classList.toggle("row-key-active", on);
+      });
+    }
+
+    function closeEditor(options = {}) {
+      const saveDraft = options.saveDraft !== false;
+      if (editorTargetLane) {
+        if (saveDraft) {
+          const bpm = Math.min(240, Math.max(40, parseInt(document.getElementById("edit-bpm").value, 10) || 120));
+          const beats = readEditBeats();
+          editorTargetLane.editBpm = bpm;
+          editorTargetLane.editBeats = beats;
+          editorTargetLane.editorDraftGrid = new Map(editorGridState);
+          editorTargetLane.editorHasDraft = true;
+        } else {
+          editorTargetLane.editorHasDraft = false;
+          editorTargetLane.editorDraftGrid = null;
+        }
+      }
+      editorModal.classList.add("hidden");
+      editorTargetLane = null;
+      editorGridState.clear();
+      if (gridBrush && gridBrush.mode === "line") {
+        clearMelodyLinePreviewOnTr(gridBrush.trRef);
+        refreshMelodyBarVisualForTr(gridBrush.trRef);
+        stopNoteVoice(gridBrush.code, gridBrush.useSharp);
+      }
+      gridBrush = null;
+    }
+
+    function gridKey(rowCode, stepIdx, sharp) {
+      return `${rowCode}_${stepIdx}_${sharp ? "s" : "n"}`;
+    }
+
+    function cellKeyFromTd(td) {
+      const code = td.dataset.code;
+      const s = parseInt(td.dataset.step, 10);
+      const kind = td.dataset.kind;
+      const useSharp = kind === "m" && td.dataset.sharp === "true";
+      return {
+        code,
+        s,
+        kind,
+        useSharp,
+        key: gridKey(code, s, useSharp),
+      };
+    }
+
+    function applyMelodyArticulationFromLane(lane) {
+      const art = lane.melodyArticulation;
+      if (art && typeof art === "object" && !Array.isArray(art)) {
+        for (const [k, vis] of Object.entries(art)) {
+          if (vis !== "thin" && vis !== "thick") continue;
+          const v = editorGridState.get(k);
+          if (v && v.kind === "m") v.melodyVisual = vis;
+        }
+        return;
+      }
+      const keys = lane.melodyThinKeys;
+      if (!keys || !keys.length) return;
+      for (const k of keys) {
+        const v = editorGridState.get(k);
+        if (v && v.kind === "m") v.melodyVisual = "thin";
+      }
+    }
+
+    function eventsToEditorGrid(lane, bpm, beats) {
+      editorGridState.clear();
+      const stepDur = (60 / bpm) / 4;
+      const steps = beats * 4;
+      if (!lane.events || !lane.events.length) return;
+      const sorted = [...lane.events].sort((a, b) => a.t - b.t);
+
+      function stepAt(t) {
+        return Math.min(steps - 1, Math.max(0, Math.floor(t / stepDur + 1e-9)));
+      }
+
+      for (const ev of sorted) {
+        if (ev.action === "drum") {
+          const step = stepAt(ev.t);
+          editorGridState.set(gridKey(ev.code, step, false), {
+            code: ev.code,
+            step,
+            sharp: false,
+            kind: "d",
+          });
+        }
+      }
+
+      const pending = new Map();
+      for (const ev of sorted) {
+        if (ev.action === "noteOn") {
+          const id = voiceId(ev.code, ev.sharp);
+          pending.set(id, { code: ev.code, sharp: !!ev.sharp, tOn: ev.t });
+        } else if (ev.action === "noteOff") {
+          const id = voiceId(ev.code, ev.sharp);
+          const p = pending.get(id);
+          if (!p) continue;
+          pending.delete(id);
+          const s0 = stepAt(p.tOn);
+          const tEnd = Math.max(p.tOn, ev.t - 1e-6);
+          const s1 = Math.min(steps - 1, Math.max(s0, Math.floor(tEnd / stepDur + 1e-9)));
+          for (let s = s0; s <= s1; s++) {
+            editorGridState.set(gridKey(p.code, s, p.sharp), {
+              code: p.code,
+              step: s,
+              sharp: p.sharp,
+              kind: "m",
+            });
+          }
+        }
+      }
+    }
+
+    function refreshMelodyBarVisualForTr(tr) {
+      if (!tr || !tr.dataset.melodyCode) return;
+      const code = tr.dataset.melodyCode;
+      const useSharp = tr.dataset.melodyVariant === "sh";
+      for (const td of tr.querySelectorAll("td.cell")) {
+        td.classList.remove("melody-bar-run-start", "melody-bar-run-mid", "melody-bar-run-end", "melody-bar-run-single");
+      }
+      tr.querySelectorAll(".melody-line-track-bar").forEach((el) => el.remove());
+
+      const sel = `td.cell[data-code="${code}"][data-kind="m"][data-sharp="${useSharp ? "true" : "false"}"]`;
+      const cells = [...tr.querySelectorAll(sel)].sort(
+        (a, b) => parseInt(a.dataset.step, 10) - parseInt(b.dataset.step, 10)
+      );
+      const onCells = cells.filter((td) => td.classList.contains("on"));
+      if (!onCells.length) return;
+      const trRect = tr.getBoundingClientRect();
+      let i = 0;
+      while (i < onCells.length) {
+        const thin = onCells[i].classList.contains("melody-vis-thin");
+        const run = [onCells[i]];
+        let j = i + 1;
+        while (
+          j < onCells.length &&
+          parseInt(onCells[j].dataset.step, 10) === parseInt(onCells[j - 1].dataset.step, 10) + 1 &&
+          onCells[j].classList.contains("melody-vis-thin") === thin
+        ) {
+          run.push(onCells[j]);
+          j++;
+        }
+        if (thin) {
+          const r0 = run[0].getBoundingClientRect();
+          const rL = run[run.length - 1].getBoundingClientRect();
+          const left = r0.left - trRect.left;
+          const width = rL.right - trRect.left - left;
+          const bar = document.createElement("div");
+          bar.className = "melody-line-track-bar";
+          bar.classList.add(useSharp ? "melody-line-track-bar--sharp" : "melody-line-track-bar--nat");
+          bar.style.left = `${Math.max(0, left)}px`;
+          bar.style.width = `${Math.max(0, width)}px`;
+          tr.appendChild(bar);
+        } else if (run.length === 1) {
+          run[0].classList.add("melody-bar-run-single");
+        } else {
+          run[0].classList.add("melody-bar-run-start");
+          for (let k = 1; k < run.length - 1; k++) run[k].classList.add("melody-bar-run-mid");
+          run[run.length - 1].classList.add("melody-bar-run-end");
+        }
+        i = j;
+      }
+    }
+
+    function setGridCell(td, add, opts = {}) {
+      if (!td || !td.classList.contains("cell")) return;
+      const { code, s, kind, useSharp, key } = cellKeyFromTd(td);
+      const wantThin = kind === "m" && opts.melodyVisual === "thin";
+      if (add) {
+        if (!editorGridState.has(key)) {
+          const entry = { code, step: s, sharp: !!useSharp, kind };
+          if (kind === "m") entry.melodyVisual = wantThin ? "thin" : "thick";
+          editorGridState.set(key, entry);
+          td.classList.add("on");
+          if (useSharp && kind === "m") td.classList.add("sharp");
+          if (kind === "m") td.classList.toggle("melody-vis-thin", wantThin);
+        } else if (kind === "m") {
+          const v = editorGridState.get(key);
+          if (wantThin) {
+            v.melodyVisual = "thin";
+            td.classList.add("melody-vis-thin");
+          } else {
+            v.melodyVisual = "thick";
+            td.classList.remove("melody-vis-thin");
+          }
+        }
+      } else if (editorGridState.has(key)) {
+        editorGridState.delete(key);
+        td.classList.remove("on", "sharp", "melody-vis-thin");
+      }
+      if (kind === "m") refreshMelodyBarVisualForTr(td.closest("tr"));
+    }
+
+    function buildStepGrid() {
+      const bpm = Math.min(240, Math.max(40, parseInt(document.getElementById("edit-bpm").value, 10) || 120));
+      const beats = readEditBeats();
+      const steps = beats * 4;
+
+      for (const [k, v] of [...editorGridState]) {
+        if (v.step >= steps) editorGridState.delete(k);
+      }
+      for (const [k, v] of [...editorGridState]) {
+        if (v.kind === "m" && v.sharp && !SHARP_ROW_AFTER_CODE.has(v.code)) {
+          editorGridState.delete(k);
+        }
+      }
+
+      stepGridEl.innerHTML = "";
+      const thead = document.createElement("thead");
+      const hr = document.createElement("tr");
+      const corner = document.createElement("th");
+      corner.className = "corner";
+      corner.textContent = "키";
+      hr.appendChild(corner);
+      for (let s = 0; s < steps; s++) {
+        const th = document.createElement("th");
+        th.className = "step-h" + (s % 4 === 0 ? " beat" : "");
+        th.textContent = String(s + 1);
+        hr.appendChild(th);
+      }
+      thead.appendChild(hr);
+      stepGridEl.appendChild(thead);
+
+      const tbody = document.createElement("tbody");
+
+      for (const [code, label] of NOTE_ORDER) {
+        const tr = document.createElement("tr");
+        tr.dataset.melodyCode = code;
+        tr.dataset.melodyVariant = "nat";
+        const th = document.createElement("th");
+        th.className = "row-label";
+        th.innerHTML = `<div class="row-label-inner"><span class="row-label-char">${label}</span></div>`;
+        tr.appendChild(th);
+
+        for (let s = 0; s < steps; s++) {
+          const td = document.createElement("td");
+          td.className = "cell";
+          td.dataset.code = code;
+          td.dataset.step = String(s);
+          td.dataset.kind = "m";
+          td.dataset.sharp = "false";
+          const gk = gridKey(code, s, false);
+          const st = editorGridState.get(gk);
+          if (st) {
+            td.classList.add("on");
+            if (st.melodyVisual === "thin") td.classList.add("melody-vis-thin");
+          }
+          tr.appendChild(td);
+        }
+        tbody.appendChild(tr);
+
+        if (SHARP_ROW_AFTER_CODE.has(code)) {
+          const sn = sharpDisplayName(code);
+          const trS = document.createElement("tr");
+          trS.dataset.melodyCode = code;
+          trS.dataset.melodyVariant = "sh";
+          const thS = document.createElement("th");
+          thS.className = "row-label row-label-sharp";
+          thS.innerHTML = `
+            <div class="row-label-inner row-label-inner--sharp-row" title="${sn}">
+              <span class="row-sharp-lbl">♯</span>
+            </div>`;
+          trS.appendChild(thS);
+          for (let s = 0; s < steps; s++) {
+            const td = document.createElement("td");
+            td.className = "cell";
+            td.dataset.code = code;
+            td.dataset.step = String(s);
+            td.dataset.kind = "m";
+            td.dataset.sharp = "true";
+            const gk = gridKey(code, s, true);
+            const stS = editorGridState.get(gk);
+            if (stS) {
+              td.classList.add("on", "sharp");
+              if (stS.melodyVisual === "thin") td.classList.add("melody-vis-thin");
+            }
+            trS.appendChild(td);
+          }
+          tbody.appendChild(trS);
+        }
+      }
+
+      for (const [code, label] of DRUM_ORDER) {
+        const tr = document.createElement("tr");
+        const th = document.createElement("th");
+        th.className = "row-label";
+        th.textContent = label;
+        tr.appendChild(th);
+        for (let s = 0; s < steps; s++) {
+          const td = document.createElement("td");
+          td.className = "cell";
+          td.dataset.code = code;
+          td.dataset.step = String(s);
+          td.dataset.kind = "d";
+          td.dataset.sharp = "false";
+          const gk = gridKey(code, s, false);
+          if (editorGridState.get(gk)) {
+            td.classList.add("on");
+          }
+          tr.appendChild(td);
+        }
+        tbody.appendChild(tr);
+      }
+
+      stepGridEl.appendChild(tbody);
+      requestAnimationFrame(() => {
+        stepGridEl.querySelectorAll("tr[data-melody-code]").forEach((row) => refreshMelodyBarVisualForTr(row));
+      });
+    }
+
+    function clearMelodyLinePreviewOnTr(tr) {
+      if (!tr) return;
+      tr.querySelectorAll(".melody-line-preview-bar").forEach((el) => el.remove());
+      if (gridBrush && gridBrush.mode === "line" && gridBrush.trRef === tr) gridBrush.lineEl = null;
+    }
+
+    function applyMelodyLinePreview(brush) {
+      if (!brush || brush.mode !== "line" || !brush.trRef) return;
+      clearMelodyLinePreviewOnTr(brush.trRef);
+      const lo = Math.min(brush.lo, brush.hi);
+      const hi = Math.max(brush.lo, brush.hi);
+      const sel = `td.cell[data-code="${brush.code}"][data-kind="m"][data-sharp="${brush.useSharp ? "true" : "false"}"]`;
+      const cells = [...brush.trRef.querySelectorAll(sel)]
+        .filter((td) => {
+          const si = parseInt(td.dataset.step, 10);
+          return si >= lo && si <= hi;
+        })
+        .sort((a, b) => parseInt(a.dataset.step, 10) - parseInt(b.dataset.step, 10));
+      if (!cells.length) return;
+      const bar = document.createElement("div");
+      bar.className = "melody-line-preview-bar";
+      bar.classList.add(brush.useSharp ? "melody-line-preview-bar--sharp" : "melody-line-preview-bar--nat");
+      if (!brush.add) bar.classList.add("melody-line-preview-bar--erase");
+      const trRect = brush.trRef.getBoundingClientRect();
+      const r0 = cells[0].getBoundingClientRect();
+      const rL = cells[cells.length - 1].getBoundingClientRect();
+      const left = r0.left - trRect.left;
+      const width = rL.right - trRect.left - left;
+      bar.style.left = `${Math.max(0, left)}px`;
+      bar.style.width = `${Math.max(0, width)}px`;
+      brush.trRef.appendChild(bar);
+      brush.lineEl = bar;
+    }
+
+    function finishLineBrushCommit() {
+      const b = gridBrush;
+      if (!b || b.mode !== "line") return;
+      clearMelodyLinePreviewOnTr(b.trRef);
+      b.lineEl = null;
+      stopNoteVoice(b.code, b.useSharp);
+      const lo = Math.min(b.lo, b.hi);
+      const hi = Math.max(b.lo, b.hi);
+      for (let s = lo; s <= hi; s++) {
+        const td = stepGridEl.querySelector(
+          `td.cell[data-code="${b.code}"][data-step="${s}"][data-kind="m"][data-sharp="${b.useSharp ? "true" : "false"}"]`
+        );
+        if (td) setGridCell(td, b.add, b.add ? { melodyVisual: "thin" } : {});
+      }
+      refreshMelodyBarVisualForTr(b.trRef);
+    }
+
+    function cancelLineBrush() {
+      const b = gridBrush;
+      if (!b || b.mode !== "line") return;
+      const tr = b.trRef;
+      clearMelodyLinePreviewOnTr(tr);
+      b.lineEl = null;
+      refreshMelodyBarVisualForTr(tr);
+      stopNoteVoice(b.code, b.useSharp);
+      gridBrush = null;
+    }
+
+    const stepGridWrap = stepGridEl.closest(".step-grid-wrap");
+    if (stepGridWrap) {
+      stepGridWrap.addEventListener("contextmenu", (e) => e.preventDefault());
+    }
+
+    stepGridEl.addEventListener("pointerdown", (e) => {
+      const td = e.target.closest("td.cell");
+      if (!td || !stepGridEl.contains(td)) return;
+
+      if (e.button === 2) {
+        e.preventDefault();
+        try {
+          td.setPointerCapture(e.pointerId);
+        } catch (_) {}
+        const ck = cellKeyFromTd(td);
+        if (ck.kind === "m") {
+          const wasOn = editorGridState.has(ck.key);
+          gridBrush = {
+            mode: "line",
+            pointerId: e.pointerId,
+            add: !wasOn,
+            code: ck.code,
+            useSharp: ck.useSharp,
+            anchorStep: ck.s,
+            lo: ck.s,
+            hi: ck.s,
+            trRef: td.closest("tr"),
+            lineEl: null,
+          };
+          startNote(ck.code, ck.useSharp);
+          applyMelodyLinePreview(gridBrush);
+          return;
+        }
+        const wasOn = editorGridState.has(ck.key);
+        gridBrush = {
+          mode: "paint",
+          add: !wasOn,
+          pointerId: e.pointerId,
+          lastTd: td,
+        };
+        setGridCell(td, gridBrush.add);
+        return;
+      }
+
+      if (e.button !== 0) return;
+      e.preventDefault();
+      try {
+        td.setPointerCapture(e.pointerId);
+      } catch (_) {}
+      const ck = cellKeyFromTd(td);
+      const wasOn = editorGridState.has(ck.key);
+      gridBrush = {
+        mode: "paint",
+        add: !wasOn,
+        pointerId: e.pointerId,
+        lastTd: td,
+      };
+      setGridCell(td, gridBrush.add);
+    });
+
+    stepGridEl.addEventListener("pointermove", (e) => {
+      if (gridBrush && e.pointerId === gridBrush.pointerId) {
+        if (gridBrush.mode === "line") {
+          const el = document.elementFromPoint(e.clientX, e.clientY);
+          const td = el && el.closest("td.cell");
+          const ck = td && cellKeyFromTd(td);
+          if (!ck || ck.kind !== "m" || ck.code !== gridBrush.code || ck.useSharp !== gridBrush.useSharp) {
+            cancelLineBrush();
+            return;
+          }
+          gridBrush.lo = Math.min(gridBrush.anchorStep, ck.s);
+          gridBrush.hi = Math.max(gridBrush.anchorStep, ck.s);
+          applyMelodyLinePreview(gridBrush);
+          return;
+        }
+        if (gridBrush.mode === "paint") {
+          const el = document.elementFromPoint(e.clientX, e.clientY);
+          const td = el && el.closest("td.cell");
+          if (!td || !stepGridEl.contains(td)) return;
+          if (gridBrush.lastTd === td) return;
+          gridBrush.lastTd = td;
+          setGridCell(td, gridBrush.add);
+        }
+      }
+    });
+
+    function endGridBrush(e) {
+      if (gridBrush && e.pointerId === gridBrush.pointerId) {
+        if (gridBrush.mode === "line") finishLineBrushCommit();
+        gridBrush = null;
+      }
+    }
+    stepGridEl.addEventListener("pointerup", endGridBrush);
+    stepGridEl.addEventListener("pointercancel", endGridBrush);
+    window.addEventListener("pointerup", endGridBrush);
+
+    function gridStateToEvents(bpm, beats) {
+      const stepDur = (60 / bpm) / 4;
+      const steps = beats * 4;
+      const tBarEnd = steps * stepDur;
+      const evs = [];
+
+      const byVoice = new Map();
+      for (const v of editorGridState.values()) {
+        if (v.step >= steps || v.kind !== "m") continue;
+        const k = `${v.code}:${v.sharp ? "s" : "n"}`;
+        if (!byVoice.has(k)) byVoice.set(k, []);
+        byVoice.get(k).push({ step: v.step, staccato: v.melodyVisual === "thick" });
+      }
+
+      for (const [k, rows] of byVoice) {
+        rows.sort((a, b) => a.step - b.step);
+        if (!rows.length) continue;
+        const sharp = k.endsWith(":s");
+        const code = k.slice(0, -2);
+        let i = 0;
+        while (i < rows.length) {
+          if (rows[i].staccato) {
+            const s = rows[i].step;
+            const t = s * stepDur;
+            evs.push({ t, action: "noteOn", code, sharp });
+            const tOff = Math.min((s + 1) * stepDur - 0.0008, tBarEnd - 0.0005);
+            evs.push({ t: Math.max(t + 0.0001, tOff), action: "noteOff", code, sharp });
+            i++;
+          } else {
+            let runStart = rows[i].step;
+            let prev = rows[i].step;
+            let j = i + 1;
+            while (j < rows.length && !rows[j].staccato && rows[j].step === prev + 1) {
+              prev = rows[j].step;
+              j++;
+            }
+            const t = runStart * stepDur;
+            evs.push({ t, action: "noteOn", code, sharp });
+            const tOff = Math.min((prev + 1) * stepDur - 0.0008, tBarEnd - 0.0005);
+            evs.push({ t: Math.max(t + 0.0001, tOff), action: "noteOff", code, sharp });
+            i = j;
+          }
+        }
+      }
+
+      for (const v of editorGridState.values()) {
+        if (v.step >= steps || v.kind !== "d") continue;
+        evs.push({ t: v.step * stepDur, action: "drum", code: v.code });
+      }
+      evs.sort((a, b) => a.t - b.t);
+      return evs;
+    }
+
+    function openEditor(lane) {
+      editorTargetLane = lane;
+      document.getElementById("edit-bpm").value = String(lane.editBpm || 120);
+      document.getElementById("edit-beats").value = String(lane.editBeats || 4);
+      editorGridState.clear();
+      const bpm = Math.min(240, Math.max(40, parseInt(document.getElementById("edit-bpm").value, 10) || 120));
+      const beats = readEditBeats();
+      if (lane.editorHasDraft && lane.editorDraftGrid) {
+        for (const [k, v] of lane.editorDraftGrid) {
+          editorGridState.set(k, { ...v });
+        }
+      } else {
+        eventsToEditorGrid(lane, bpm, beats);
+        applyMelodyArticulationFromLane(lane);
+      }
+      document.getElementById("editor-title").textContent = `루프 #${lane.id} 편집`;
+      buildStepGrid();
+      editorModal.classList.remove("hidden");
+    }
+
+    document.getElementById("edit-bpm").addEventListener("change", buildStepGrid);
+    document.getElementById("edit-beats").addEventListener("change", buildStepGrid);
+    document.getElementById("editor-close").addEventListener("click", closeEditor);
+    document.getElementById("editor-cancel").addEventListener("click", closeEditor);
+    document.getElementById("editor-apply").addEventListener("click", () => {
+      if (!editorTargetLane) return;
+      const bpm = Math.min(240, Math.max(40, parseInt(document.getElementById("edit-bpm").value, 10) || 120));
+      const beats = readEditBeats();
+      editorTargetLane.editBpm = bpm;
+      editorTargetLane.editBeats = beats;
+      editorTargetLane.barDurationSec = beats * (60 / bpm);
+      editorTargetLane.events = gridStateToEvents(bpm, beats);
+      const art = {};
+      for (const [k, v] of editorGridState) {
+        if (v.kind === "m" && (v.melodyVisual === "thin" || v.melodyVisual === "thick")) art[k] = v.melodyVisual;
+      }
+      editorTargetLane.melodyArticulation = Object.keys(art).length ? art : null;
+      editorTargetLane.melodyThinKeys = null;
+      stopLanePlayback(editorTargetLane);
+      editorTargetLane.recording = false;
+      if (activeRecordingLaneId === editorTargetLane.id) activeRecordingLaneId = null;
+      if (editorTargetLane.el) editorTargetLane.el.querySelector(".btn-lane-rec").classList.remove("on");
+      updateLaneMeta(editorTargetLane);
+      closeEditor({ saveDraft: false });
+    });
+    editorModal.addEventListener("click", (e) => {
+      if (e.target === editorModal) closeEditor();
+    });
+
+    document.getElementById("btn-add-loop").addEventListener("click", () => {
+      resizeLoopCanvases();
+      createLane();
+    });
+
+    document.getElementById("btn-play-all").addEventListener("click", playAllLoops);
+
+    if (typeof ResizeObserver !== "undefined") {
+      new ResizeObserver(resizeLoopCanvases).observe(loopLanesRoot);
+    }
+
+    const kbNoteSharp = new Map();
+
+    window.addEventListener("keydown", (e) => {
+      if (e.code === "ControlLeft" || e.code === "ControlRight") {
+        if (e.repeat) return;
+        e.preventDefault();
+        toggleMetronome();
+        return;
+      }
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      const code = e.code;
+      if (DRUM_BY_CODE[code]) {
+        if (e.repeat) return;
+        e.preventDefault();
+        pushRecordEvent({ action: "drum", code });
+        playDrum(code);
+        return;
+      }
+      if (!NOTE_BY_CODE[code]) return;
+      if (e.repeat) return;
+      e.preventDefault();
+      kbNoteSharp.set(code, e.shiftKey);
+      pushRecordEvent({ action: "noteOn", code, sharp: e.shiftKey });
+      startNote(code, e.shiftKey);
+    });
+
+    window.addEventListener("keyup", (e) => {
+      const code = e.code;
+      if (DRUM_BY_CODE[code]) {
+        e.preventDefault();
+        return;
+      }
+      if (!NOTE_BY_CODE[code]) return;
+      e.preventDefault();
+      const sharp = kbNoteSharp.has(code) ? kbNoteSharp.get(code) : false;
+      kbNoteSharp.delete(code);
+      pushRecordEvent({ action: "noteOff", code, sharp });
+      stopNoteVoice(code, sharp);
+    });
+
+    function stopEverything() {
+      kbNoteSharp.clear();
+      for (const lane of [...loopLanes]) {
+        stopLanePlayback(lane);
+        lane.recording = false;
+        if (lane.el) lane.el.querySelector(".btn-lane-rec").classList.remove("on");
+        updateLaneMeta(lane);
+      }
+      activeRecordingLaneId = null;
+      for (const vid of [...voices.keys()]) stopVoice(vid);
+      stopMetronome();
+      closeEditor();
+    }
+
+    window.addEventListener("blur", stopEverything);
+
+    createLane();
+    resizeLoopCanvases();
+    ensureMasterChain();
+    requestAnimationFrame(waveLoop);
+
+    /* 첫 캔버스 클리어 */
+    for (const lane of loopLanes) {
+      if (lane.canvas) {
+        const c = lane.canvas.getContext("2d");
+        c.fillStyle = "#1a1b26";
+        c.fillRect(0, 0, lane.canvas.width, lane.canvas.height);
+      }
+    }
+  </script>
+</body>
+</html>
